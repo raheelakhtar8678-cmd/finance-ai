@@ -1,0 +1,37 @@
+# -------- Extraction Layer --------
+pdfplumber
+pymupdf
+tabula-py
+pandas
+openpyxl
+xlrd
+
+# -------- RAG / Vector DB --------
+chromadb
+python-dotenv
+tiktoken
+
+# -------- AI Model (Local LLM - Phi3) --------
+transformers
+accelerate
+bitsandbytes
+sentence_transformers
+
+# -------- Visualization --------
+matplotlib
+seaborn
+
+# -------- Report Generation --------
+reportlab
+python-pptx
+
+# -------- UI Layer --------
+streamlit
+
+# -------- Utility --------
+requests
+numpy
+pillow
+
+# UI
+gradio
