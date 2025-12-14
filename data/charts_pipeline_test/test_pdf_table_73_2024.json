@@ -1,0 +1,88 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-29ae57488825e8fffbcace3852951496"
+    },
+    "mark": {
+        "type": "bar"
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "kimon_w_michaels",
+                "type": "nominal"
+            },
+            {
+                "field": "2024",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "kimon_w_michaels",
+            "title": "kimon_w_michaels",
+            "type": "ordinal"
+        },
+        "y": {
+            "field": "2024",
+            "title": "2024",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "2024 Trend for test.pdf Table 73",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-29ae57488825e8fffbcace3852951496": [
+            {
+                "kimon_w_michaels": "Executive Vice",
+                "2024": 2023.0,
+                "400_000": 395000.0,
+                "73_510": 77720.0,
+                "_4": "\u2014",
+                "_6": "\u2014",
+                "73_509": "80376",
+                "14_286": 18736.0,
+                "561_305": 571832.0
+            },
+            {
+                "kimon_w_michaels": "President Products and",
+                "2024": 2022.0,
+                "400_000": 372500.0,
+                "73_510": 190000.0,
+                "_4": "\u2014",
+                "_6": "\u2014",
+                "73_509": "\u2014",
+                "14_286": 7636.0,
+                "561_305": 570136.0
+            },
+            {
+                "kimon_w_michaels": "Solutions and Director",
+                "2024": null,
+                "400_000": null,
+                "73_510": null,
+                "_4": "",
+                "_6": "",
+                "73_509": "",
+                "14_286": null,
+                "561_305": null
+            }
+        ]
+    }
+}

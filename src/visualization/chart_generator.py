@@ -1,211 +1,316 @@
 # src/visualization/chart_generator.py
+"""
+Production-grade chart generator using Plotly.
+Generates beautiful, interactive charts suitable for financial reports.
+"""
 
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from typing import Dict, Any, Optional
 from pathlib import Path
+import json
 
-# Set backend and apply a modern style for better aesthetics
-plt.switch_backend("Agg")  
-plt.style.use('seaborn-v0_8') 
+# ==========================================
+# SMART CHART TYPE DETECTION
+# ==========================================
 
-class ChartGenerator:
+def detect_chart_type(df: pd.DataFrame, x_col: str, y_col: str) -> str:
     """
-    Enhanced chart generator for multi-file usage.
-    Auto-detects date columns, numeric columns, and avoids chart failures.
+    Intelligently detect the best chart type based on data characteristics.
     """
+    # Time series detection
+    if is_time_series(df, x_col):
+        return "line"
+    
+    # Composition (parts of whole) → Pie
+    if is_categorical(df, x_col) and is_composition(df, y_col):
+        return "pie"
+    
+    # Categorical comparison → Bar
+    if is_categorical(df, x_col):
+        return "bar"
+    
+    # Two numeric columns → Scatter
+    if pd.api.types.is_numeric_dtype(df[x_col]) and pd.api.types.is_numeric_dtype(df[y_col]):
+        return "scatter"
+    
+    # Default
+    return "bar"
 
-    def __init__(self, output_dir="data/charts"):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+def is_time_series(df: pd.DataFrame, col: str) -> bool:
+    """Check if column contains time/date data."""
+    try:
+        if df[col].dtype == 'object':
+            parsed = pd.to_datetime(df[col], errors='coerce')
+            return parsed.notna().sum() > len(df) * 0.5
+        return pd.api.types.is_datetime64_any_dtype(df[col])
+    except:
+        return False
 
-    # --------------------------------------------------------
-    # Detect numeric columns
-    # --------------------------------------------------------
-    @staticmethod
-    def _numeric_columns(df: pd.DataFrame):
-        return df.select_dtypes(include=["number"]).columns.tolist()
+def is_categorical(df: pd.DataFrame, col: str, threshold: int = 15) -> bool:
+    """Check if column is categorical (low unique values)."""
+    return df[col].nunique() <= threshold
 
-    # --------------------------------------------------------
-    # Detect date-like column (for timeseries charts)
-    # --------------------------------------------------------
-    @staticmethod
-    def _detect_time_index(df: pd.DataFrame):
-        for col in df.columns:
-            if col.lower() in ["date", "month", "year", "period", "time"]:
-                try:
-                    # Attempt to convert the series to datetime objects
-                    time_series = pd.to_datetime(df[col], errors='coerce')
-                    # Check if conversion was successful for most values
-                    if time_series.notna().sum() > len(df) * 0.5:
-                        return time_series
-                except Exception:
-                    pass
-        return None
+def is_composition(df: pd.DataFrame, col: str) -> bool:
+    """Check if data represents parts of a whole (sum ≈ 100 or 1)."""
+    if pd.api.types.is_numeric_dtype(df[col]):
+        total = df[col].sum()
+        return abs(total - 100) < 5 or abs(total - 1.0) < 0.1
+    return False
 
-    # --------------------------------------------------------
-    # Safe index assignment for charts
-    # --------------------------------------------------------
-    def _prepare_index(self, df: pd.DataFrame):
-        time_index = self._detect_time_index(df)
-        if time_index is not None:
-            df = df.copy()
-            df.index = time_index
-            return df
+# ==========================================
+# CHART GENERATORS (PLOTLY)
+# ==========================================
 
-        # Fallback: use index
-        df.index = df.index.astype(str)
-        return df
+def create_line_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> go.Figure:
+    """Create professional line chart for trends."""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=df[x_col],
+        y=df[y_col],
+        mode='lines+markers',
+        name=y_col,
+        line=dict(color='#2E86DE', width=3),
+        marker=dict(size=8, color='#2E86DE', line=dict(width=2, color='white'))
+    ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        template='plotly_white',
+        hovermode='x unified',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)',
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.3)'),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.3)')
+    )
+    
+    return fig
 
-    # --------------------------------------------------------
-    # LINE CHART
-    # --------------------------------------------------------
-    def line_chart(self, df: pd.DataFrame, column: str, file_prefix: str = "", title: str = None):
-        df = self._prepare_index(df)
+def create_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> go.Figure:
+    """Create professional bar chart for comparisons."""
+    # Determine if values are positive/negative for coloring
+    colors = ['#27AE60' if val >= 0 else '#E74C3C' for val in df[y_col]]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=df[x_col],
+        y=df[y_col],
+        marker=dict(
+            color=colors,
+            line=dict(color='white', width=2)
+        ),
+        text=df[y_col].apply(lambda x: f'{x:,.0f}' if abs(x) > 1000 else f'{x:.2f}'),
+        textposition='outside',
+        name=y_col
+    ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)',
+        showlegend=False
+    )
+    
+    return fig
 
-        if column not in df.columns:
-            return None
+def create_pie_chart(df: pd.DataFrame, labels_col: str, values_col: str, title: str) -> go.Figure:
+    """Create professional pie chart for composition."""
+    fig = go.Figure()
+    
+    # Color palette (professional finance colors)
+    colors = ['#3498DB', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C', '#34495E', '#E67E22']
+    
+    fig.add_trace(go.Pie(
+        labels=df[labels_col],
+        values=df[values_col],
+        hole=0.4,  # Donut chart
+        marker=dict(colors=colors, line=dict(color='white', width=2)),
+        textposition='outside',
+        textinfo='label+percent',
+        textfont=dict(size=12, family='Arial'),
+        hovertemplate='<b>%{label}</b><br>Value: %{value:,.0f}<br>Percent: %{percent}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        showlegend=True,
+        legend=dict(orientation='v', x=1.1, y=0.5)
+    )
+    
+    return fig
 
-        plt.figure(figsize=(12, 6))
-        # Use the default integer position index for plotting, regardless of what the real index is
-        plt.plot(df.index, df[column], marker="o") 
-        plt.title(title or f"Trend of {column}")
-        plt.xlabel("Index / Date")
-        plt.ylabel(column)
-        plt.grid(True)
+def create_scatter_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> go.Figure:
+    """Create professional scatter plot for correlations."""
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=df[x_col],
+        y=df[y_col],
+        mode='markers',
+        marker=dict(
+            size=12,
+            color=df[y_col],
+            colorscale='Viridis',
+            showscale=True,
+            line=dict(width=1, color='white')
+        ),
+        text=df.index,
+        hovertemplate='<b>%{text}</b><br>%{x}: %{y:,.2f}<extra></extra>'
+    ))
+    
+    # Add trend line
+    if len(df) > 2:
+        import numpy as np
+        z = np.polyfit(df[x_col], df[y_col], 1)
+        p = np.poly1d(z)
+        fig.add_trace(go.Scatter(
+            x=df[x_col],
+            y=p(df[x_col]),
+            mode='lines',
+            name='Trend',
+            line=dict(color='red', width=2, dash='dash')
+        ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)'
+    )
+    
+    return fig
+
+# ==========================================
+# MAIN GENERATOR FUNCTION
+# ==========================================
+
+def generate_chart(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    title: str = "Financial Data Visualization",
+    output_path: Optional[str] = None,
+    chart_type: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Generate publication-quality financial charts.
+    
+    Args:
+        df: DataFrame with data
+        x_col: Column for X-axis
+        y_col: Column for Y-axis
+        title: Chart title
+        output_path: Path to save PNG (optional)
+        chart_type: Force specific chart type (optional)
+    
+    Returns:
+        Dictionary with chart metadata
+    """
+    # Clean data
+    df = df.copy()
+    df = df.dropna(subset=[x_col, y_col])
+    
+    if df.empty:
+        return {"error": "No valid data after cleaning", "chart_type": None}
+    
+    # Auto-detect chart type if not specified
+    if chart_type is None:
+        chart_type = detect_chart_type(df, x_col, y_col)
+    
+    # Generate chart
+    try:
+        if chart_type == "line":
+            fig = create_line_chart(df, x_col, y_col, title)
+        elif chart_type == "bar":
+            fig = create_bar_chart(df, x_col, y_col, title)
+        elif chart_type == "pie":
+            fig = create_pie_chart(df, x_col, y_col, title)
+        elif chart_type == "scatter":
+            fig = create_scatter_chart(df, x_col, y_col, title)
+        else:
+            fig = create_bar_chart(df, x_col, y_col, title)  # Default fallback
         
-        # CRITICAL FIX: Sample X-axis Ticks for readability
-        n_ticks = len(df.index)
+        # Save as PNG if path provided
+        image_path = None
+        if output_path:
+            try:
+                fig.write_image(output_path, width=1200, height=700, scale=2)
+                image_path = output_path
+                print(f"✅ Chart saved: {output_path}")
+            except Exception as e:
+                print(f"⚠️ Could not save PNG (install kaleido: pip install kaleido): {e}")
+                # Save as HTML fallback
+                html_path = output_path.replace('.png', '.html')
+                fig.write_html(html_path)
+                image_path = html_path
+                print(f"✅ Saved as interactive HTML: {html_path}")
         
-        # Adjust step size dynamically to keep max ~15 readable labels
-        step = max(1, n_ticks // 15) 
+        return {
+            "chart_type": chart_type,
+            "image_path": image_path,
+            "success": True
+        }
         
-        # Select indices and corresponding labels to display
-        # We sample the labels from the dataframe's actual index
-        tick_indices = list(range(0, n_ticks, step))
-        tick_labels = [df.index[i] for i in tick_indices]
-        
-        # Apply the sampled ticks
-        # We need to set the location of the ticks (tick_indices) and their labels (tick_labels)
-        plt.gca().set_xticks(tick_indices) # Set the positions for the ticks
-        plt.gca().set_xticklabels(tick_labels, rotation=45, ha='right') # Set the labels and rotation
-        
-        plt.tight_layout() 
+    except Exception as e:
+        print(f"❌ Chart generation failed: {e}")
+        return {"error": str(e), "chart_type": chart_type, "success": False}
 
-        filename = f"{file_prefix}_{column}_line.png".replace(" ", "_")
-        filepath = self.output_dir / filename
+# ==========================================
+# FINANCIAL DASHBOARD GENERATOR
+# ==========================================
 
-        plt.savefig(filepath, dpi=220, bbox_inches="tight")
-        plt.close()
-
-        return filepath
-
-    # --------------------------------------------------------
-    # BAR CHART
-    # --------------------------------------------------------
-    def bar_chart(self, df: pd.DataFrame, column: str, file_prefix: str = "", title: str = None):
-        df = self._prepare_index(df)
-
-        if column not in df.columns:
-            return None
-
-        plt.figure(figsize=(12, 6)) 
-        plt.bar(df.index.astype(str), df[column])
-        plt.title(title or f"{column} Distribution")
-        plt.xlabel("Index / Date")
-        plt.ylabel(column)
-        
-        # CRITICAL FIX: Sample X-axis Ticks for readability
-        n_ticks = len(df.index)
-        step = max(1, n_ticks // 15)
-        tick_indices = list(range(0, n_ticks, step))
-        tick_labels = [df.index[i] for i in tick_indices]
-        
-        # Apply sampled ticks to the current axes (plt.gca())
-        plt.gca().set_xticks(tick_indices)
-        plt.gca().set_xticklabels(tick_labels, rotation=45, ha='right')
-        
-        plt.tight_layout() 
-
-        filename = f"{file_prefix}_{column}_bar.png".replace(" ", "_")
-        filepath = self.output_dir / filename
-
-        plt.savefig(filepath, dpi=220, bbox_inches="tight")
-        plt.close()
-
-        return filepath
-
-    # --------------------------------------------------------
-    # MULTI-TREND CHART (e.g., Revenue + Profit vs Time)
-    # --------------------------------------------------------
-    def multi_trend_chart(self, df: pd.DataFrame, columns: list, file_prefix: str = "", title="Multiple Trends"):
-        df = self._prepare_index(df)
-
-        if not any(col in df.columns for col in columns):
-            return None
-
-        plt.figure(figsize=(12, 6))
-        plotted = False
-
-        for col in columns:
-            if col in df.columns:
-                plt.plot(df[col], marker="o", label=col)
-                plotted = True
-
-        if not plotted:
-            return None
-
-        plt.title(title)
-        plt.xlabel("Index / Date")
-        plt.ylabel("Values")
-        plt.legend()
-        plt.grid(True)
-
-        # CRITICAL FIX: Sample X-axis Ticks for readability
-        n_ticks = len(df.index)
-        step = max(1, n_ticks // 15)
-        tick_indices = list(range(0, n_ticks, step))
-        tick_labels = [df.index[i] for i in tick_indices]
-        
-        plt.gca().set_xticks(tick_indices)
-        plt.gca().set_xticklabels(tick_labels, rotation=45, ha='right')
-        
-        plt.tight_layout() 
-
-        filename = f"{file_prefix}_multi_trend.png"
-        filepath = self.output_dir / filename
-
-        plt.savefig(filepath, dpi=220, bbox_inches="tight")
-        plt.close()
-
-        return filepath
-
-    # --------------------------------------------------------
-    # AUTO-GENERATE CHARTS FOR ANY FILE
-    # --------------------------------------------------------
-    def generate_all_charts(self, df: pd.DataFrame, file_prefix: str):
-        """
-        Called when user uploads 1–5 files.
-        Produces:
-            • Line charts for numeric columns
-            • A multi-trend chart (first 3 numeric columns)
-        """
-        numeric_cols = self._numeric_columns(df)
-        results = []
-
-        if not numeric_cols:
-            return results  # no numeric data
-
-        # Generate line charts
-        for col in numeric_cols:
-            path = self.line_chart(df, col, file_prefix)
-            if path:
-                results.append(path)
-
-        # Multi-column trend (up to 3 columns)
-        if len(numeric_cols) >= 2:
-            multi_cols = numeric_cols[:3]
-            path = self.multi_trend_chart(df, multi_cols, file_prefix)
-            if path:
-                results.append(path)
-
-        return results
+def create_financial_dashboard(
+    revenue_df: pd.DataFrame,
+    expenses_df: pd.DataFrame,
+    cash_df: pd.DataFrame,
+    output_path: str
+) -> str:
+    """
+    Create a complete financial dashboard with multiple charts.
+    """
+    from plotly.subplots import make_subplots
+    
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Revenue Trend', 'Expense Breakdown', 'Cash Flow', 'Key Metrics'),
+        specs=[[{"type": "scatter"}, {"type": "pie"}],
+               [{"type": "bar"}, {"type": "indicator"}]]
+    )
+    
+    # Revenue trend (top-left)
+    if not revenue_df.empty:
+        fig.add_trace(
+            go.Scatter(x=revenue_df.iloc[:, 0], y=revenue_df.iloc[:, 1], mode='lines+markers', name='Revenue'),
+            row=1, col=1
+        )
+    
+    # Expenses pie (top-right)
+    if not expenses_df.empty:
+        fig.add_trace(
+            go.Pie(labels=expenses_df.iloc[:, 0], values=expenses_df.iloc[:, 1], name='Expenses'),
+            row=1, col=2
+        )
+    
+    # Cash flow bar (bottom-left)
+    if not cash_df.empty:
+        fig.add_trace(
+            go.Bar(x=cash_df.iloc[:, 0], y=cash_df.iloc[:, 1], name='Cash'),
+            row=2, col=1
+        )
+    
+    fig.update_layout(height=800, showlegend=True, title_text="Financial Dashboard")
+    fig.write_html(output_path)
+    
+    return output_path

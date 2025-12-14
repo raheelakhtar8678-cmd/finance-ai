@@ -1,0 +1,204 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-a76ae4e10236626bd010300e566f06f7"
+    },
+    "mark": {
+        "type": "line",
+        "point": true
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "0",
+                "type": "nominal"
+            },
+            {
+                "field": "1",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "0",
+            "title": "0",
+            "type": "temporal"
+        },
+        "y": {
+            "field": "1",
+            "title": "1",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "1 Trend for test.pdf Table 2",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-a76ae4e10236626bd010300e566f06f7": [
+            {
+                "0": "Proxy Statement",
+                "1": 1.0
+            },
+            {
+                "0": "Proposal No.1:",
+                "1": null
+            },
+            {
+                "0": "Election of Class III Directors to the Board",
+                "1": 2.0
+            },
+            {
+                "0": "Director Classes",
+                "1": 3.0
+            },
+            {
+                "0": "Board Skills and Experience",
+                "1": 4.0
+            },
+            {
+                "0": "Nominee Selection Process",
+                "1": 5.0
+            },
+            {
+                "0": "Nominees for Class III Directors",
+                "1": 6.0
+            },
+            {
+                "0": "Continuing Class I Directors",
+                "1": 8.0
+            },
+            {
+                "0": "Continuing Class II Directors",
+                "1": 9.0
+            },
+            {
+                "0": "Corporate Governance",
+                "1": 11.0
+            },
+            {
+                "0": "Governance and our Board of Directors",
+                "1": 11.0
+            },
+            {
+                "0": "Board Leadership Structure",
+                "1": 12.0
+            },
+            {
+                "0": "The Board of Directors and its Committees",
+                "1": 13.0
+            },
+            {
+                "0": "Meetings of the Board of Directors and",
+                "1": 13.0
+            },
+            {
+                "0": "Attendance",
+                "1": null
+            },
+            {
+                "0": "Board Composition",
+                "1": 16.0
+            },
+            {
+                "0": "Overboarding Policy",
+                "1": 16.0
+            },
+            {
+                "0": "Board and Committee Evaluation",
+                "1": 16.0
+            },
+            {
+                "0": "Stockholder Recommendations of Board",
+                "1": 16.0
+            },
+            {
+                "0": "Candidates",
+                "1": null
+            },
+            {
+                "0": "Stockholder Communications",
+                "1": 16.0
+            },
+            {
+                "0": "Stockholder Engagement",
+                "1": 17.0
+            },
+            {
+                "0": "Director Independence",
+                "1": 17.0
+            },
+            {
+                "0": "The Board\u2019s Role in Risk Oversight",
+                "1": 18.0
+            },
+            {
+                "0": "Strategy Oversight by the Board",
+                "1": 19.0
+            },
+            {
+                "0": "Information Security and Risk Oversight",
+                "1": 19.0
+            },
+            {
+                "0": "Code of Ethics",
+                "1": 19.0
+            },
+            {
+                "0": "Corporate Governance Policies",
+                "1": 20.0
+            },
+            {
+                "0": "Environmental Social & Governance Matters",
+                "1": 21.0
+            },
+            {
+                "0": "Oversight of Human Capital Management",
+                "1": 21.0
+            },
+            {
+                "0": "Audit Committee Report",
+                "1": 22.0
+            },
+            {
+                "0": "Proposal No.2:",
+                "1": null
+            },
+            {
+                "0": "Ratification of Appointment of Independent",
+                "1": null
+            },
+            {
+                "0": "Registered Public Accounting Firm",
+                "1": 23.0
+            },
+            {
+                "0": "Proposal No.3:",
+                "1": null
+            },
+            {
+                "0": "Approval of our Tenth Amended and Restated",
+                "1": null
+            },
+            {
+                "0": "2011 Stock Incentive Plan",
+                "1": 25.0
+            }
+        ]
+    }
+}

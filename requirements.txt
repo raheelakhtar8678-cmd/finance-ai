@@ -20,6 +20,8 @@ sentence_transformers
 # -------- Visualization --------
 matplotlib
 seaborn
+plotly 
+kaleido
 
 # -------- Report Generation --------
 reportlab

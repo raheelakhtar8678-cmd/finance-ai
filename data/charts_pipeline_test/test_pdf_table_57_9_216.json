@@ -1,0 +1,60 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-94b18b1fbd8489552394b0cbd775af1f"
+    },
+    "mark": {
+        "type": "bar"
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "chi_foon_chan_7",
+                "type": "nominal"
+            },
+            {
+                "field": "9_216",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "chi_foon_chan_7",
+            "title": "chi_foon_chan_7",
+            "type": "ordinal"
+        },
+        "y": {
+            "field": "9_216",
+            "title": "9_216",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "9_216 Trend for test.pdf Table 57",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-94b18b1fbd8489552394b0cbd775af1f": [
+            {
+                "chi_foon_chan_7": "Nancy Erba (8)",
+                "9_216": 35693,
+                "_2": "*"
+            }
+        ]
+    }
+}

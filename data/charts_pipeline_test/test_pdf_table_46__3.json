@@ -1,0 +1,65 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-b11c69d5c6f27f737a24e45c7de90b5c"
+    },
+    "mark": {
+        "type": "bar"
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "all_employees_including_all_current_officers_who_are_not_executive_officers_as_a",
+                "type": "nominal"
+            },
+            {
+                "field": "_3",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "all_employees_including_all_current_officers_who_are_not_executive_officers_as_a",
+            "title": "all_employees_including_all_current_officers_who_are_not_executive_officers_as_a",
+            "type": "ordinal"
+        },
+        "y": {
+            "field": "_3",
+            "title": "_3",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "_3 Trend for test.pdf Table 46",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-b11c69d5c6f27f737a24e45c7de90b5c": [
+            {
+                "all_employees_including_all_current_officers_who_are_not_executive_officers_as_a": null,
+                "_1": 2034497.0,
+                "_3": 9704336.0
+            },
+            {
+                "all_employees_including_all_current_officers_who_are_not_executive_officers_as_a": "group",
+                "_1": null,
+                "_3": null
+            }
+        ]
+    }
+}

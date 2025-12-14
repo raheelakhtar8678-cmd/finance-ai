@@ -1,0 +1,60 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-794581ae390862308864a32cfeeb2a2b"
+    },
+    "mark": {
+        "type": "bar"
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "0",
+                "type": "nominal"
+            },
+            {
+                "field": "3",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "0",
+            "title": "0",
+            "type": "ordinal"
+        },
+        "y": {
+            "field": "3",
+            "title": "3",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "3 Trend for test.pdf Table 85",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-794581ae390862308864a32cfeeb2a2b": [
+            {
+                "0": "Vesting acceleration of outstanding and unvested restricted stock units",
+                "2": 1827900,
+                "3": -1
+            }
+        ]
+    }
+}

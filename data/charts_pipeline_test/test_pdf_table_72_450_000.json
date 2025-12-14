@@ -1,0 +1,88 @@
+{
+    "config": {
+        "view": {
+            "continuousWidth": 300,
+            "continuousHeight": 300
+        }
+    },
+    "data": {
+        "name": "data-f246a6d67e134b71241962ba94a9b6ba"
+    },
+    "mark": {
+        "type": "bar"
+    },
+    "encoding": {
+        "tooltip": [
+            {
+                "field": "john_k_kibarian",
+                "type": "nominal"
+            },
+            {
+                "field": "450_000",
+                "type": "quantitative"
+            }
+        ],
+        "x": {
+            "field": "john_k_kibarian",
+            "title": "john_k_kibarian",
+            "type": "ordinal"
+        },
+        "y": {
+            "field": "450_000",
+            "title": "450_000",
+            "type": "quantitative"
+        }
+    },
+    "params": [
+        {
+            "name": "param_1e9efca18e7a2868",
+            "select": {
+                "type": "interval",
+                "encodings": [
+                    "x",
+                    "y"
+                ]
+            },
+            "bind": "scales"
+        }
+    ],
+    "title": "450_000 Trend for test.pdf Table 72",
+    "$schema": "https://vega.github.io/schema/vega-lite/v6.1.0.json",
+    "datasets": {
+        "data-f246a6d67e134b71241962ba94a9b6ba": [
+            {
+                "john_k_kibarian": "Chief Executive",
+                "2024": 2023.0,
+                "450_000": 447500.0,
+                "42_699": 39577.0,
+                "_4": "\u2014",
+                "_6": "\u2014",
+                "82_698": "90423",
+                "14_286": 18419.0,
+                "589_683": 595919.0
+            },
+            {
+                "john_k_kibarian": "Officer President and",
+                "2024": 2022.0,
+                "450_000": 426667.0,
+                "42_699": 220000.0,
+                "_4": "\u2014",
+                "_6": "\u2014",
+                "82_698": "\u2014",
+                "14_286": 7953.0,
+                "589_683": 654620.0
+            },
+            {
+                "john_k_kibarian": "Director",
+                "2024": null,
+                "450_000": null,
+                "42_699": null,
+                "_4": "",
+                "_6": "",
+                "82_698": "",
+                "14_286": null,
+                "589_683": null
+            }
+        ]
+    }
+}
