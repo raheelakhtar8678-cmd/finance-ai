@@ -338,7 +338,7 @@ def main():
         print("   ℹ️ No trends detected (need numeric time-series data)")
     
     # ==========================================
-    # 8.5️⃣ QUERY ROUTER REGRESSION TEST (NEW)
+    # 8.5️⃣ QUERY ROUTER REGRESSION TEST
     # ==========================================
     print_section("8️⃣.5️⃣ TESTING QUERY ROUTING")
     
@@ -368,6 +368,40 @@ def main():
                 print("   ℹ️ No chart generated")
         except Exception as e:
             print(f"   ❌ Router Error for '{q}': {e}")
+
+
+    # ==========================================
+    # 8.6️⃣ TESTING COMPARISON ENGINE (C-4)
+    # ==========================================
+    print_section("8️⃣.6️⃣ TESTING COMPARISON ENGINE (C-4)")
+
+    try:
+        from src.analysis.comparison_engine import compare_across_documents
+
+        # Test comparison queries
+        comparison_queries = [
+            "compare revenue across files",
+            "which document has higher expenses",
+            "compare burn rate between uploaded files",
+        ]
+
+        for query in comparison_queries:
+            print(f"\n🔍 Query: '{query}'")
+
+            result = compare_across_documents(query, cleaned_tables)
+
+            if result.get("success"):
+                print(f"✅ Comparison successful:")
+                print(f"\n{result['summary']}")
+                print(f"\nConfidence: {result['confidence']:.0%}")
+            else:
+                print(f"⚠️ {result.get('summary', 'Comparison not possible')}")
+
+    except ImportError:
+        print("\n   ❌ Comparison Engine module (src.analysis.comparison_engine) not found.")
+        print("      ⚠️ Please create the comparison_engine.py file to run this test.")
+    except Exception as e:
+        print(f"   ❌ Error testing comparison engine: {e}")
 
 
     # ==========================================
@@ -407,6 +441,7 @@ def main():
     print("   ✅ Trend detection & anomaly spotting")
     print("   ✅ Variable extraction from RAG context")
     print("   ✅ Intelligent Query Routing (Direct vs. Reasoned)")
+    print("   ✅ Multi-Document Comparison Engine (C-4)")
     
     print("\n📂 Output Locations:")
     print(f"   Charts: {chart_dir}/")
