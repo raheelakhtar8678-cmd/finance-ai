@@ -1,415 +1,340 @@
 # src/analysis/financial_reasoning.py
 """
-Part C-3: Deterministic Financial Reasoning & Substitution Layer
-
-This layer adds CFO-like intelligence WITHOUT using LLM:
-- Understands financial synonyms (sales = revenue)
-- Attempts deterministic substitutions
-- Provides reasoned explanations when data is missing
-- Maintains auditability and trust
-
-This is NOT AI hallucination - it's financial domain knowledge.
+Financial Reasoning Engine with Chart Generation Support
+Handles synonym matching, calculations, and returns data for charts
 """
 
-from typing import Dict, List, Tuple, Optional, Any
+from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
-from src.analysis.calculator import safe_eval_expr
 
-# =============================================================================
-# FINANCIAL DOMAIN KNOWLEDGE (Curated by CFOs, Not AI)
-# =============================================================================
 
-# Column name substitutions (financial synonyms)
+# ==========================================
+# COLUMN SYNONYMS (Expanded)
+# ==========================================
+
 COLUMN_SYNONYMS = {
     "revenue": ["sales", "total_sales", "total_revenue", "net_revenue", 
-                "gross_revenue", "turnover", "income_from_sales"],
+                "gross_revenue", "turnover", "income_from_sales", "top_line",
+                "rev", "monthly_revenue", "annual_revenue"],
     
     "cash": ["cash_and_cash_equivalents", "cash_balance", "total_cash",
-             "available_cash", "cash_on_hand"],
+             "available_cash", "cash_on_hand", "liquid_assets", "bank_balance",
+             "cash_at_bank", "ending_cash", "cash_and_equivalents"],
     
     "expenses": ["operating_expenses", "total_expenses", "opex", "costs",
-                 "operating_costs", "expenditures"],
-    
-    "cogs": ["cost_of_goods_sold", "cost_of_sales", "cost_of_revenue",
-             "direct_costs"],
+                 "operating_costs", "expenditures", "burn", "monthly_burn", 
+                 "outflow", "spend", "total_spend", "expenses_total",
+                 "monthly_expenses", "operating_expenditure"],
     
     "profit": ["net_income", "net_profit", "net_earnings", "bottom_line",
-               "profit_after_tax"],
+               "profit_loss", "net_result", "earnings", "income"],
     
-    "assets": ["total_assets", "current_assets"],
+    "cogs": ["cost_of_goods_sold", "cost_of_sales", "direct_costs",
+             "production_costs", "cogs_total"],
     
-    "liabilities": ["total_liabilities", "current_liabilities"],
+    "assets": ["total_assets", "current_assets", "fixed_assets",
+               "asset_total", "balance_sheet_assets"],
     
-    "equity": ["shareholders_equity", "stockholders_equity", "owners_equity",
-               "total_equity"],
+    "liabilities": ["total_liabilities", "current_liabilities", "debt",
+                    "obligations", "payables"],
+    
+    "equity": ["shareholder_equity", "stockholder_equity", "net_worth",
+               "owner_equity", "equity_total"],
+    
+    "operating_income": ["ebit", "operating_profit", "operational_income",
+                         "income_from_operations"],
+    
+    "cash_flow": ["cash_flow_from_operations", "operating_cash_flow",
+                  "ocf", "cash_from_ops"],
 }
 
-# Derived metrics (can be computed from other columns)
-DERIVED_METRICS = {
-    "gross_profit": {
-        "formula": "revenue - cogs",
-        "requires": ["revenue", "cogs"],
-        "description": "Revenue minus Cost of Goods Sold"
-    },
-    
-    "operating_profit": {
-        "formula": "revenue - cogs - operating_expenses",
-        "requires": ["revenue", "cogs", "operating_expenses"],
-        "description": "Gross profit minus operating expenses"
-    },
-    
-    "working_capital": {
-        "formula": "current_assets - current_liabilities",
-        "requires": ["current_assets", "current_liabilities"],
-        "description": "Current assets minus current liabilities"
-    },
-}
 
-# =============================================================================
-# COLUMN INTELLIGENCE
-# =============================================================================
+# ==========================================
+# COLUMN FINDER (With Synonym Matching)
+# ==========================================
 
 def find_column_with_reasoning(
-    tables: List[dict],
-    target_column: str,
-    allow_synonyms: bool = True
-) -> Tuple[Optional[pd.DataFrame], Optional[str], str]:
+    tables: List[dict], 
+    metric_name: str
+) -> Tuple[Optional[pd.DataFrame], Optional[str], float]:
     """
-    Find a column in tables with intelligent substitution.
+    Find column using synonym matching.
     
     Returns:
-        (dataframe, actual_column_name, reasoning_explanation)
-    
-    Example:
-        df, col, reason = find_column_with_reasoning(tables, "revenue")
-        # Returns: (df, "sales", "Using 'sales' as equivalent to 'revenue'")
+        (dataframe, column_name, confidence_score)
     """
     
-    # Step 1: Try exact match
-    for table in tables:
-        df = table.get("df")
-        if df is None or df.empty:
-            continue
+    # Get synonyms for this metric
+    synonyms = COLUMN_SYNONYMS.get(metric_name, [metric_name])
+    
+    for table_dict in tables:
+        df = table_dict["df"]
         
+        # Try exact match first
         for col in df.columns:
-            if str(col).lower().replace("_", " ") == target_column.lower().replace("_", " "):
-                return df, col, f"Found exact match: '{col}'"
-    
-    # Step 2: Try synonyms if allowed
-    if allow_synonyms and target_column in COLUMN_SYNONYMS:
-        synonyms = COLUMN_SYNONYMS[target_column]
-        
-        for table in tables:
-            df = table.get("df")
-            if df is None or df.empty:
-                continue
+            col_lower = str(col).lower().strip()
             
-            for col in df.columns:
-                col_normalized = str(col).lower().replace("_", " ").replace("-", " ")
-                
-                for synonym in synonyms:
-                    synonym_normalized = synonym.lower().replace("_", " ")
-                    
-                    if synonym_normalized in col_normalized or col_normalized in synonym_normalized:
-                        return df, col, f"Using '{col}' as financial equivalent of '{target_column}'"
+            # Check against metric name
+            if metric_name.lower() in col_lower:
+                return df, col, 1.0
+            
+            # Check against all synonyms
+            for synonym in synonyms:
+                if synonym.lower() in col_lower:
+                    return df, col, 0.9
     
-    # Step 3: No match found
-    return None, None, f"Column '{target_column}' not found (checked {len(tables)} tables)"
+    return None, None, 0.0
 
-# =============================================================================
-# METRIC REASONING ENGINE
-# =============================================================================
+
+# ==========================================
+# METRIC REASONER CLASS
+# ==========================================
 
 class MetricReasoner:
     """
-    Deterministic reasoning engine for financial metrics.
-    
-    This class attempts to compute metrics using:
-    1. Exact columns
-    2. Synonym substitution
-    3. Derived computation
-    4. Fallback explanation
+    Deterministic financial metric calculator with reasoning logs
     """
     
     def __init__(self, tables: List[dict]):
         self.tables = tables
         self.reasoning_log = []
     
-    def _log_reasoning(self, step: str):
-        """Track reasoning steps for auditability"""
-        self.reasoning_log.append(step)
+    def get_reasoning_log(self) -> List[str]:
+        return self.reasoning_log
     
-    def _extract_value(self, df: pd.DataFrame, column: str, method: str = 'last') -> Optional[float]:
-        """Extract numeric value from a column"""
+    def _log(self, message: str):
+        self.reasoning_log.append(message)
+        print(f"   📝 {message}")
+    
+    def _extract_value(self, df: pd.DataFrame, col: str) -> float:
+        """Extract numeric value from column"""
         try:
-            series = pd.to_numeric(df[column], errors='coerce').dropna()
-            if series.empty:
-                return None
-            
-            if method == 'last':
-                return float(series.iloc[-1])
-            elif method == 'mean':
-                return float(series.mean())
-            elif method == 'sum':
-                return float(series.sum())
-            return float(series.iloc[-1])
+            # Get last value (most recent)
+            val = df[col].iloc[-1]
+            return float(val)
         except:
-            return None
+            # Try first value
+            try:
+                val = df[col].iloc[0]
+                return float(val)
+            except:
+                return 0.0
     
     def compute_burn_rate(self) -> Dict[str, Any]:
-        """
-        Compute burn rate with intelligent reasoning.
+        """Calculate burn rate with reasoning"""
         
-        Returns:
-            {
-                "success": bool,
-                "result": float or None,
-                "reasoning": str,
-                "calculation": str,
-                "confidence": float
-            }
-        """
-        self._log_reasoning("Attempting to compute burn rate (cash / monthly_expenses)")
+        self._log("Attempting to compute burn rate")
         
-        # Step 1: Find cash
-        cash_df, cash_col, cash_reason = find_column_with_reasoning(self.tables, "cash")
-        self._log_reasoning(cash_reason)
+        # Find cash
+        df_cash, col_cash, conf_cash = find_column_with_reasoning(self.tables, "cash")
         
-        if cash_df is None:
+        if df_cash is None:
+            self._log("❌ Cash column not found")
             return {
                 "success": False,
                 "result": None,
-                "reasoning": "Cannot compute burn rate: No cash data found",
-                "missing": ["cash"],
+                "reasoning": "Advisory: Required data (Cash) is missing.",
                 "confidence": 0.0
             }
         
-        cash_value = self._extract_value(cash_df, cash_col, method='last')
+        # Find expenses
+        df_exp, col_exp, conf_exp = find_column_with_reasoning(self.tables, "expenses")
         
-        # Step 2: Find expenses
-        expense_df, expense_col, expense_reason = find_column_with_reasoning(self.tables, "expenses")
-        self._log_reasoning(expense_reason)
-        
-        if expense_df is None:
+        if df_exp is None:
+            self._log("❌ Expenses column not found")
             return {
                 "success": False,
                 "result": None,
-                "reasoning": f"Found cash (${cash_value:,.0f}) but no expense data to compute burn rate",
-                "missing": ["monthly_expenses"],
-                "confidence": 0.3,
-                "partial_data": {"cash": cash_value}
-            }
-        
-        expense_value = self._extract_value(expense_df, expense_col, method='mean')
-        
-        # Step 3: Calculate
-        if cash_value and expense_value and expense_value > 0:
-            months = cash_value / expense_value
-            
-            calculation = f"${cash_value:,.0f} (cash) / ${expense_value:,.0f} (monthly expenses) = {months:.1f} months"
-            
-            reasoning = f"Burn rate calculated using '{cash_col}' and '{expense_col}'. "
-            reasoning += f"At current spending rate, cash will last {months:.1f} months."
-            
-            self._log_reasoning(f"Successfully calculated: {calculation}")
-            
-            return {
-                "success": True,
-                "result": months,
-                "reasoning": reasoning,
-                "calculation": calculation,
-                "confidence": 0.9,
-                "variables": {
-                    "cash": cash_value,
-                    "monthly_burn": expense_value
-                }
-            }
-        
-        return {
-            "success": False,
-            "result": None,
-            "reasoning": "Found cash and expense columns but could not extract numeric values",
-            "confidence": 0.2
-        }
-    
-    def compute_revenue_growth(self) -> Dict[str, Any]:
-        """
-        Compute revenue growth with intelligent reasoning.
-        """
-        self._log_reasoning("Attempting to compute revenue growth (YoY)")
-        
-        # Step 1: Find revenue
-        revenue_df, revenue_col, revenue_reason = find_column_with_reasoning(self.tables, "revenue")
-        self._log_reasoning(revenue_reason)
-        
-        if revenue_df is None:
-            return {
-                "success": False,
-                "result": None,
-                "reasoning": "Cannot compute revenue growth: No revenue/sales data found",
-                "missing": ["revenue"],
-                "confidence": 0.0
-            }
-        
-        # Step 2: Extract time series
-        try:
-            revenue_series = pd.to_numeric(revenue_df[revenue_col], errors='coerce').dropna()
-            
-            if len(revenue_series) < 2:
-                return {
-                    "success": False,
-                    "result": None,
-                    "reasoning": f"Found revenue data (${float(revenue_series.iloc[0]):,.0f}) but need at least 2 periods for growth calculation",
-                    "confidence": 0.4,
-                    "partial_data": {"revenue_latest": float(revenue_series.iloc[0])}
-                }
-            
-            # Calculate growth
-            current = float(revenue_series.iloc[-1])
-            previous = float(revenue_series.iloc[-2])
-            
-            if previous == 0:
-                return {
-                    "success": False,
-                    "result": None,
-                    "reasoning": "Cannot calculate growth: previous period revenue is zero",
-                    "confidence": 0.3
-                }
-            
-            growth_pct = ((current - previous) / previous) * 100
-            growth_amount = current - previous
-            
-            calculation = f"(${current:,.0f} - ${previous:,.0f}) / ${previous:,.0f} × 100 = {growth_pct:+.1f}%"
-            
-            reasoning = f"Revenue growth calculated from '{revenue_col}': "
-            reasoning += f"{'Increased' if growth_pct > 0 else 'Decreased'} by ${abs(growth_amount):,.0f} "
-            reasoning += f"({growth_pct:+.1f}%) period-over-period."
-            
-            self._log_reasoning(f"Successfully calculated: {calculation}")
-            
-            return {
-                "success": True,
-                "result": growth_pct,
-                "reasoning": reasoning,
-                "calculation": calculation,
-                "confidence": 0.95,
-                "variables": {
-                    "revenue_current": current,
-                    "revenue_previous": previous,
-                    "growth_amount": growth_amount
-                }
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "result": None,
-                "reasoning": f"Error extracting revenue data: {str(e)}",
-                "confidence": 0.1
-            }
-    
-    def compute_gross_margin(self) -> Dict[str, Any]:
-        """
-        Compute gross margin with intelligent reasoning.
-        """
-        self._log_reasoning("Attempting to compute gross margin: (revenue - cogs) / revenue")
-        
-        # Find revenue
-        revenue_df, revenue_col, revenue_reason = find_column_with_reasoning(self.tables, "revenue")
-        self._log_reasoning(revenue_reason)
-        
-        # Find COGS
-        cogs_df, cogs_col, cogs_reason = find_column_with_reasoning(self.tables, "cogs")
-        self._log_reasoning(cogs_reason)
-        
-        if revenue_df is None or cogs_df is None:
-            missing = []
-            if revenue_df is None:
-                missing.append("revenue")
-            if cogs_df is None:
-                missing.append("cogs")
-            
-            return {
-                "success": False,
-                "result": None,
-                "reasoning": f"Cannot compute gross margin: Missing {', '.join(missing)}",
-                "missing": missing,
+                "reasoning": "Advisory: Required data (Expenses) is missing.",
                 "confidence": 0.0
             }
         
         # Extract values
-        revenue_value = self._extract_value(revenue_df, revenue_col, method='last')
-        cogs_value = self._extract_value(cogs_df, cogs_col, method='last')
+        cash = self._extract_value(df_cash, col_cash)
+        expenses = self._extract_value(df_exp, col_exp)
         
-        if revenue_value and cogs_value and revenue_value > 0:
-            margin_pct = ((revenue_value - cogs_value) / revenue_value) * 100
-            gross_profit = revenue_value - cogs_value
-            
-            calculation = f"(${revenue_value:,.0f} - ${cogs_value:,.0f}) / ${revenue_value:,.0f} × 100 = {margin_pct:.1f}%"
-            
-            reasoning = f"Gross margin calculated using '{revenue_col}' and '{cogs_col}': "
-            reasoning += f"For every $1 in revenue, ${(gross_profit/revenue_value):.2f} is gross profit."
-            
+        if expenses == 0:
             return {
-                "success": True,
-                "result": margin_pct,
-                "reasoning": reasoning,
-                "calculation": calculation,
-                "confidence": 0.95,
-                "variables": {
-                    "revenue": revenue_value,
-                    "cogs": cogs_value,
-                    "gross_profit": gross_profit
-                }
+                "success": False,
+                "result": None,
+                "reasoning": "Cannot calculate: Monthly expenses are zero.",
+                "confidence": 0.0
             }
         
+        # Calculate
+        months = cash / expenses
+        
+        self._log(f"✅ Burn rate calculated: {months:.1f} months")
+        
         return {
-            "success": False,
-            "result": None,
-            "reasoning": "Found revenue and COGS columns but could not extract numeric values",
-            "confidence": 0.2
+            "success": True,
+            "result": months,
+            "reasoning": f"Cash runway: ${cash:,.0f} / ${expenses:,.0f} per month = {months:.1f} months",
+            "confidence": min(conf_cash, conf_exp),
+            "calculation": f"{cash} / {expenses}",
+            "df": df_cash,  # For chart generation
+            "col": col_cash
         }
     
-    def get_reasoning_log(self) -> List[str]:
-        """Get full reasoning log for auditability"""
-        return self.reasoning_log
+    def compute_revenue_growth(self) -> Dict[str, Any]:
+        """Calculate revenue growth with reasoning"""
+        
+        self._log("Attempting to compute revenue growth")
+        
+        # Find revenue
+        df, col, conf = find_column_with_reasoning(self.tables, "revenue")
+        
+        if df is None:
+            self._log("❌ Revenue column not found")
+            return {
+                "success": False,
+                "result": None,
+                "reasoning": "Revenue data not found in uploaded documents.",
+                "confidence": 0.0
+            }
+        
+        # Need at least 2 periods
+        if len(df) < 2:
+            self._log("❌ Insufficient historical data")
+            return {
+                "success": False,
+                "result": None,
+                "reasoning": "Insufficient historical revenue data (need at least 2 periods).",
+                "confidence": 0.0,
+                "df": df,  # Still return df for potential chart
+                "col": col
+            }
+        
+        # Get last two values
+        current = float(df[col].iloc[-1])
+        previous = float(df[col].iloc[-2])
+        
+        if previous == 0:
+            return {
+                "success": False,
+                "result": None,
+                "reasoning": "Cannot calculate growth: Previous period revenue is zero.",
+                "confidence": 0.0
+            }
+        
+        # Calculate growth
+        growth = ((current - previous) / previous) * 100
+        
+        self._log(f"✅ Revenue growth calculated: {growth:+.1f}%")
+        
+        return {
+            "success": True,
+            "result": growth,
+            "reasoning": f"Revenue grew from ${previous:,.0f} to ${current:,.0f} ({growth:+.1f}%)",
+            "confidence": conf,
+            "calculation": f"({current} - {previous}) / {previous} * 100",
+            "df": df,  # For chart generation
+            "col": col
+        }
+    
+    def compute_simple_metric(self, metric_name: str) -> Dict[str, Any]:
+        """
+        Generic handler for simple column lookups (revenue, profit, etc.)
+        Returns data suitable for chart generation
+        """
+        
+        self._log(f"Looking up: {metric_name}")
+        
+        df, col, conf = find_column_with_reasoning(self.tables, metric_name)
+        
+        if df is None:
+            self._log(f"❌ {metric_name} not found")
+            return {
+                "success": False,
+                "result": None,
+                "reasoning": f"{metric_name.title()} data not found in uploaded documents.",
+                "confidence": 0.0
+            }
+        
+        # Extract value
+        val = self._extract_value(df, col)
+        
+        self._log(f"✅ Found {metric_name}: {val}")
+        
+        return {
+            "success": True,
+            "result": val,
+            "reasoning": f"Found {metric_name} in column '{col}': ${val:,.2f}",
+            "confidence": conf,
+            "df": df,  # For chart generation
+            "col": col
+        }
 
-# =============================================================================
-# SIMPLE INTERFACE
-# =============================================================================
 
-def compute_metric_with_reasoning(
-    metric_name: str,
-    tables: List[dict]
-) -> Dict[str, Any]:
+# ==========================================
+# MAIN ENTRY POINT
+# ==========================================
+
+def compute_metric_with_reasoning(metric_name: str, tables: List[dict]) -> Dict[str, Any]:
     """
-    Compute any financial metric with deterministic reasoning.
+    Main entry point for metric computation.
     
-    Args:
-        metric_name: "burn_rate", "revenue_growth", "gross_margin"
-        tables: List of cleaned table dicts
-    
-    Returns:
-        Full result with reasoning, confidence, and auditability
+    Handles both complex calculations and simple lookups.
+    Returns data suitable for chart generation.
     """
     
     reasoner = MetricReasoner(tables)
     
-    if metric_name == "burn_rate":
+    # Handle specific calculations
+    if metric_name == "burn_rate" or metric_name == "burn rate":
         result = reasoner.compute_burn_rate()
-    elif metric_name == "revenue_growth":
-        result = reasoner.compute_revenue_growth()
-    elif metric_name == "gross_margin":
-        result = reasoner.compute_gross_margin()
-    else:
-        return {
-            "success": False,
-            "result": None,
-            "reasoning": f"Metric '{metric_name}' not yet implemented",
-            "confidence": 0.0
-        }
     
-    # Add reasoning log for auditability
+    elif metric_name == "revenue_growth" or metric_name == "revenue growth":
+        result = reasoner.compute_revenue_growth()
+    
+    # Add other complex metrics here (gross_margin, net_profit_margin, etc.)
+    
+    # Fallback: Simple column lookup for base metrics
+    else:
+        result = reasoner.compute_simple_metric(metric_name)
+    
+    # Add reasoning log
     result["reasoning_log"] = reasoner.get_reasoning_log()
+    
+    # ✅ CHART INTEGRATION: Add chart generation if data found
+    if result.get("success") and result.get("df") is not None and result.get("col") is not None:
+        try:
+            from src.visualization.chart_generator import generate_chart
+            from pathlib import Path
+            
+            df = result["df"]
+            col = result["col"]
+            
+            # Get x-axis column (date/period or index)
+            x_col = None
+            for potential_x in df.columns:
+                if potential_x != col and str(potential_x).lower() in ['date', 'period', 'year', 'quarter', 'month']:
+                    x_col = potential_x
+                    break
+            
+            if x_col is None:
+                # Use first non-numeric column or index
+                non_numeric = df.select_dtypes(exclude='number').columns.tolist()
+                x_col = non_numeric[0] if non_numeric else df.columns[0]
+            
+            # Generate chart
+            output_path = f"data/static/{metric_name.replace(' ', '_')}.png"
+            Path("data/static").mkdir(parents=True, exist_ok=True)
+            
+            chart_result = generate_chart(
+                df=df,
+                x_col=x_col,
+                y_col=col,
+                title=f"{metric_name.replace('_', ' ').title()} Analysis",
+                output_path=output_path
+            )
+            
+            if chart_result.get("success"):
+                result["chart_path"] = chart_result.get("image_path")
+                print(f"✅ Chart generated: {chart_result.get('image_path')}")
+        
+        except Exception as e:
+            print(f"⚠️ Chart generation failed: {e}")
+            result["chart_path"] = None
     
     return result
