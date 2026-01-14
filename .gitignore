@@ -1,5 +1,53 @@
-venv/ 
-__pycache__/ 
-*.egg-info/ 
-data/raw/*.pdf 
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment variables
 .env
+.env.local
+*.env
+enivormental.env
+path.env
+
+# Data directories (large files)
+data/uploads/
+data/cache/
+data/raw/*.pdf
+data/charts_complete/
+data/db/
+cache/
+chroma_db/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test_output.txt
+*.log
+
+# Temporary files
+*.tmp
+table_*.txt
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large dependency files
+get-pip.py

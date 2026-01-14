@@ -12,6 +12,34 @@ from pathlib import Path
 import json
 
 # ==========================================
+# DATA SANITIZATION
+# ==========================================
+
+def sanitize_dataframe_for_charting(df: pd.DataFrame, x_col: str, y_col: str) -> pd.DataFrame:
+    """
+    Clean DataFrame for charting - handles string numbers, mixed types, etc.
+    """
+    from src.analysis.robust_value_extractor import extract_financial_value
+    
+    df = df.copy()
+    
+    # Clean y-axis (must be numeric)
+    if not pd.api.types.is_numeric_dtype(df[y_col]):
+        df[y_col] = df[y_col].apply(lambda x: extract_financial_value(x))
+    
+    # Clean x-axis (try datetime first, then keep as-is)
+    if x_col and not pd.api.types.is_numeric_dtype(df[x_col]) and not pd.api.types.is_datetime64_any_dtype(df[x_col]):
+        try:
+            df[x_col] = pd.to_datetime(df[x_col], errors='coerce')
+        except:
+            pass  # Keep as categorical
+    
+    # Remove rows where y is null
+    df = df.dropna(subset=[y_col])
+    
+    return df
+
+# ==========================================
 # SMART CHART TYPE DETECTION
 # ==========================================
 
@@ -193,6 +221,172 @@ def create_scatter_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -
     return fig
 
 # ==========================================
+# WATERFALL CHART (Variance Analysis)
+# ==========================================
+
+def create_waterfall_chart(
+    labels: list,
+    values: list,
+    title: str = "Variance Analysis"
+) -> go.Figure:
+    """
+    Create professional waterfall chart for variance/bridge analysis.
+    
+    Args:
+        labels: List of step labels (e.g., ['Q1 2024', 'Growth', 'Expenses', 'Q1 2025'])
+        values: List of values (first and last are totals, middle are changes)
+        title: Chart title
+    """
+    # Determine measure types (first=absolute, middle=relative, last=total)
+    measures = []
+    for i, val in enumerate(values):
+        if i == 0:
+            measures.append("absolute")  # Starting point
+        elif i == len(values) - 1:
+            measures.append("total")  # Ending point
+        else:
+            measures.append("relative")  # Changes
+    
+    # Colors: green for positive, red for negative
+    colors = []
+    for i, val in enumerate(values):
+        if measures[i] == "absolute" or measures[i] == "total":
+            colors.append("#3498DB")  # Blue for totals
+        elif val >= 0:
+            colors.append("#27AE60")  # Green for positive change
+        else:
+            colors.append("#E74C3C")  # Red for negative change
+    
+    fig = go.Figure(go.Waterfall(
+        name="Variance",
+        orientation="v",
+        measure=measures,
+        x=labels,
+        y=values,
+        connector={"line": {"color": "#7F8C8D", "width": 2, "dash": "dot"}},
+        decreasing={"marker": {"color": "#E74C3C"}},
+        increasing={"marker": {"color": "#27AE60"}},
+        totals={"marker": {"color": "#3498DB"}},
+        text=[f"{v:+,.0f}" if i > 0 and i < len(values)-1 else f"{v:,.0f}" for i, v in enumerate(values)],
+        textposition="outside",
+        textfont=dict(size=12, family="Arial")
+    ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)',
+        showlegend=False,
+        waterfallgap=0.3
+    )
+    
+    return fig
+
+
+def create_comparison_bar_chart(
+    df: pd.DataFrame,
+    x_col: str,
+    value_cols: list,
+    title: str = "Comparison"
+) -> go.Figure:
+    """
+    Create grouped bar chart for multi-period/multi-metric comparisons.
+    
+    Args:
+        df: DataFrame with data
+        x_col: Column for categories (x-axis)
+        value_cols: List of value column names to compare
+        title: Chart title
+    """
+    fig = go.Figure()
+    
+    # Color palette for multiple series
+    colors = ['#3498DB', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6']
+    
+    for i, col in enumerate(value_cols):
+        color = colors[i % len(colors)]
+        fig.add_trace(go.Bar(
+            name=col,
+            x=df[x_col],
+            y=df[col],
+            marker_color=color,
+            text=df[col].apply(lambda x: f'{x:,.0f}' if abs(x) > 1000 else f'{x:.2f}'),
+            textposition='outside'
+        ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        xaxis_title=x_col,
+        yaxis_title="Value",
+        barmode='group',
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+    )
+    
+    return fig
+
+
+def create_trend_forecast_chart(
+    historical_df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    forecast_df: pd.DataFrame = None,
+    title: str = "Trend with Forecast"
+) -> go.Figure:
+    """
+    Create line chart with historical data and optional forecast projection.
+    """
+    fig = go.Figure()
+    
+    # Historical data (solid line)
+    fig.add_trace(go.Scatter(
+        x=historical_df[x_col],
+        y=historical_df[y_col],
+        mode='lines+markers',
+        name='Actual',
+        line=dict(color='#2E86DE', width=3),
+        marker=dict(size=8, color='#2E86DE')
+    ))
+    
+    # Forecast data (dashed line)
+    if forecast_df is not None and not forecast_df.empty:
+        fig.add_trace(go.Scatter(
+            x=forecast_df[x_col],
+            y=forecast_df[y_col],
+            mode='lines+markers',
+            name='Forecast',
+            line=dict(color='#E74C3C', width=2, dash='dash'),
+            marker=dict(size=6, color='#E74C3C', symbol='diamond')
+        ))
+        
+        # Add confidence band if available
+        if 'lower_bound' in forecast_df.columns and 'upper_bound' in forecast_df.columns:
+            fig.add_trace(go.Scatter(
+                x=list(forecast_df[x_col]) + list(forecast_df[x_col][::-1]),
+                y=list(forecast_df['upper_bound']) + list(forecast_df['lower_bound'][::-1]),
+                fill='toself',
+                fillcolor='rgba(231,76,60,0.2)',
+                line=dict(color='rgba(255,255,255,0)'),
+                name='Confidence Band',
+                showlegend=True
+            ))
+    
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=18, color='#2C3E50', family='Arial Black')),
+        xaxis_title=x_col,
+        yaxis_title=y_col,
+        template='plotly_white',
+        font=dict(family='Arial', size=12),
+        plot_bgcolor='rgba(240,240,240,0.5)',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+    )
+    
+    return fig
+
+# ==========================================
 # MAIN GENERATOR FUNCTION
 # ==========================================
 
@@ -228,6 +422,9 @@ def generate_chart(
     # Auto-detect chart type if not specified
     if chart_type is None:
         chart_type = detect_chart_type(df, x_col, y_col)
+
+    # ✅ SANITIZE DATA (Fixes TypeError: '>=' not supported between instances of 'str' and 'int')
+    df = sanitize_dataframe_for_charting(df, x_col, y_col)
     
     # Generate chart
     try:

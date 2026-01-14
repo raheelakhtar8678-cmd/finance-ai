@@ -1,80 +1,300 @@
 # src/analysis/metric_registry.py
-
 # -------------------------------------------------
 # Metric metadata (used for routing & visualization)
 # -------------------------------------------------
-METRIC_METADATA = {
-    # ✅ 1. BASE METRICS (The missing piece)
+
+METRIC_REGISTRY = {
+
     "revenue": {
-        "keywords": ["revenue", "sales", "turnover", "top line", "income", "total sales"],
-        "required_columns": ["revenue"],
-        "formula": "revenue", # Direct lookup
+        "keywords": ["revenue", "sales", "turnover", "top line", "net sales", "total net sales"],
+        "formula": "revenue",
         "chart": "bar",
         "chart_when_series": True,
-        "description": "Total revenue/sales for the period"
-    },
-    "expenses": {
-        "keywords": ["expenses", "costs", "spending", "opex", "outflow", "expenditure"],
-        "required_columns": ["expenses"],
-        "formula": "expenses", # Direct lookup
-        "chart": "bar",
-        "chart_when_series": True,
-        "description": "Total operating expenses"
-    },
-    "profit": {
-        "keywords": ["profit", "net income", "earnings", "bottom line", "net profit"],
-        "required_columns": ["net_profit"],
-        "formula": "net_profit", # Direct lookup
-        "chart": "bar",
-        "chart_when_series": True,
-        "description": "Net profit or loss"
+        "description": "Total revenue for the period"
     },
 
-    # ✅ 2. CALCULATED METRICS (Your existing logic)
-    "burn rate": {
-        "keywords": ["burn rate", "cash burn", "runway", "months left"],
-        "required_columns": ["cash", "monthly_expenses"],
-        "formula": "cash / monthly_expenses",
-        "chart": None,
-        "chart_when_series": False,
-        "description": "Cash runway in months"
+    "cost_of_revenue": {
+        "keywords": ["cost of revenue", "cost of sales", "cost of goods sold", "cogs"],
+        "formula": "cost_of_revenue",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Direct costs associated with generating revenue"
     },
-    "revenue_growth": {
-        "keywords": ["revenue growth", "yoy revenue", "sales growth", "revenue trend", "growth"],
-        "required_columns": ["revenue"],
-        "formula": "(revenue_current - revenue_previous) / revenue_previous * 100",
+
+    "r_and_d_expense": {
+        "keywords": [
+            "research and development", "r&d", "r&d expense", "r&d expenses",
+            "research & development", "research and development expense",
+            "research and development expenses", "r and d", "rd expense"
+        ],
+        "formula": "r_and_d_expense",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Research and development expenses for innovation and product development"
+    },
+
+    "sga_expense": {
+        "keywords": [
+            "selling general and administrative", "sg&a", "sga", "sga expense",
+            "selling, general and administrative", "operating expenses"
+        ],
+        "formula": "sga_expense",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Selling, general and administrative expenses"
+    },
+
+    "gross_margin": {
+        "keywords": ["gross margin", "gross margin %", "gross margin percentage", "gross profit margin"],
+        "formula": "(revenue - cost_of_revenue) / revenue * 100",
         "chart": "line",
         "chart_when_series": True,
-        "description": "Year-over-year revenue growth"
+        "unit": "percent",
+        "description": "Gross profit as a percentage of revenue"
     },
-    "gross_margin": {
-        "keywords": ["gross margin", "gross profit margin"],
-        "required_columns": ["revenue", "cogs"],
-        "formula": "(revenue - cogs) / revenue * 100",
-        "chart": None,
-        "chart_when_series": False,
-        "description": "Gross profit as percentage of revenue"
+
+    "operating_income": {
+        "keywords": ["total operating income", "operating income", "operating profit", "income from operations", "ebit"],
+        "formula": "operating_income",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Profit before interest and taxes"
     },
-    "net_profit_margin": {
-        "keywords": ["net profit margin", "net margin", "profit margin"],
-        "required_columns": ["revenue", "net_profit"],
-        "formula": "net_profit / revenue * 100",
-        "chart": None,
-        "chart_when_series": False,
-        "description": "Net profit as percentage of revenue"
+
+    "operating_margin": {
+        "keywords": ["operating margin", "operating profit margin", "operating margin percentage"],
+        "formula": "operating_income / revenue * 100",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "percent",
+        "description": "Operating income as a percentage of revenue"
     },
+
+    "net_income": {
+        "keywords": ["net income", "net profit", "net earnings", "bottom line", "profit or loss", "profitable", "profitability", "profit", "income"],
+        "formula": "net_income",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total profit or loss after all expenses and taxes"
+    },
+
+    "net_margin": {
+        "keywords": ["net margin", "net profit margin", "net margin percentage"],
+        "formula": "net_income / revenue * 100",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "percent",
+        "description": "Net income as a percentage of revenue"
+    },
+
+    "revenue_growth": {
+        "keywords": ["growth", "revenue growth", "sales growth", "yoy growth"],
+        "formula": "(current_revenue - prior_revenue) / prior_revenue * 100",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "percent",
+        "description": "Year-over-year revenue growth percentage"
+    },
+
+    "eps": {
+        "keywords": ["eps", "earnings per share", "basic eps", "diluted eps"],
+        "formula": "eps",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Earnings per share"
+    },
+    
+    "operating_cash_flow": {
+        "keywords": [
+            "operating cash flow", 
+            "cash flows from operating activities", 
+            "net cash provided by operating activities", 
+            "cash generated by operating activities",
+            "cash from operations",
+            "net cash from operating activities",
+            "ops cash flow"
+        ],
+        "formula": "operating_cash_flow",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Net cash generated from regular business operations"
+    },
+    
+    # ===== NEW METRICS FOR COMPLEX QUERIES =====
+    
+    "burn_rate": {
+        "keywords": [
+            "burn rate", "cash burn", "monthly burn", "runway",
+            "cash consumption", "spending rate"
+        ],
+        "formula": "(opening_cash - closing_cash) / period_months",
+        "chart": "line",
+        "chart_when_series": True,
+        "requires": ["cash", "period"],
+        "description": "Rate of cash consumption per period"
+    },
+    
+    # ===== BALANCE SHEET CURRENT ASSETS =====
+    
+    "inventory": {
+        "keywords": [
+            "inventory", "inventories", "inventory levels", "stock levels",
+            "merchandise", "finished goods", "raw materials", "work in process"
+        ],
+        "formula": "inventory",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total inventory on the balance sheet"
+    },
+    
+    "accounts_receivable": {
+        "keywords": [
+            "accounts receivable", "receivables", "trade receivables",
+            "customer receivables"
+        ],
+        "formula": "accounts_receivable",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Amounts owed by customers"
+    },
+    
+    "accounts_payable": {
+        "keywords": [
+            "accounts payable", "payables", "trade payables",
+            "vendor payables"
+        ],
+        "formula": "accounts_payable",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Amounts owed to suppliers"
+    },
+    
+    "current_assets": {
+        "keywords": [
+            "current assets", "total current assets", 
+            "short-term assets"
+        ],
+        "formula": "current_assets",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total current assets on balance sheet"
+    },
+    
+    "current_liabilities": {
+        "keywords": [
+            "current liabilities", "total current liabilities",
+            "short-term liabilities"
+        ],
+        "formula": "current_liabilities",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total current liabilities on balance sheet"
+    },
+    
+    "total_assets": {
+        "keywords": [
+            "total assets", "assets", "total asset",
+            "asset base", "balance sheet total"
+        ],
+        "formula": "total_assets",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total assets on the balance sheet"
+    },
+    
+    "total_liabilities": {
+        "keywords": [
+            "total liabilities", "liabilities", "total liability",
+            "debt", "obligations"
+        ],
+        "formula": "total_liabilities",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total liabilities on the balance sheet"
+    },
+    
+    "shareholder_equity": {
+        "keywords": [
+            "shareholders equity", "stockholders equity", 
+            "total equity", "equity", "net worth",
+            "shareholders' equity", "stockholders' equity"
+        ],
+        "formula": "total_assets - total_liabilities",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Total shareholders equity"
+    },
+    
+    "cash_position": {
+        "keywords": [
+            "cash", "cash position", "cash balance",
+            "cash and cash equivalents", "cash holdings",
+            "liquid assets", "cash on hand"
+        ],
+        "formula": "cash_and_equivalents",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Cash and cash equivalents on hand"
+    },
+    
+    "free_cash_flow": {
+        "keywords": [
+            "free cash flow", "fcf", "cash after capex",
+            "free cash", "available cash flow"
+        ],
+        "formula": "operating_cash_flow - capital_expenditures",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Cash available after capital expenditures"
+    },
+    
+    "working_capital": {
+        "keywords": [
+            "working capital", "net working capital",
+            "current assets minus current liabilities"
+        ],
+        "formula": "current_assets - current_liabilities",
+        "chart": "bar",
+        "chart_when_series": True,
+        "description": "Current assets minus current liabilities"
+    },
+    
+    "debt_to_equity": {
+        "keywords": [
+            "debt to equity", "d/e ratio", "debt equity ratio",
+            "leverage ratio", "gearing"
+        ],
+        "formula": "total_debt / total_equity",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "ratio",
+        "description": "Ratio of total debt to shareholders equity"
+    },
+    
+    "current_ratio": {
+        "keywords": [
+            "current ratio", "liquidity ratio",
+            "working capital ratio"
+        ],
+        "formula": "current_assets / current_liabilities",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "ratio",
+        "description": "Current assets divided by current liabilities"
+    },
+    
+    "return_on_equity": {
+        "keywords": [
+            "return on equity", "roe", "equity return",
+            "return on shareholders equity"
+        ],
+        "formula": "net_income / average_equity * 100",
+        "chart": "line",
+        "chart_when_series": True,
+        "unit": "percent",
+        "description": "Net income as a percentage of shareholders equity"
+    }
 }
 
-# Alias for compatibility with router
-METRIC_REGISTRY = METRIC_METADATA
-
-# -------------------------------------------------
-# Executable functions (Optional: can be None for direct lookups)
-# -------------------------------------------------
-# The router uses this to map strings to functions. 
-# For base metrics (revenue/expenses), the 'compute_metric_with_reasoning' 
-# function handles them dynamically without needing a specific function here.
-METRIC_REGISTRY_FUNCTIONS = {
-    # We map these to None or specific handlers if you have them.
-    # The reasoning engine handles direct column lookups automatically.
-}
+# ✅ IMPORTANT: backward compatibility
+METRIC_METADATA = METRIC_REGISTRY

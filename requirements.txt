@@ -2,6 +2,7 @@
 pdfplumber
 pymupdf
 tabula-py
+pymupdf4llm
 pandas
 openpyxl
 xlrd
@@ -37,3 +38,11 @@ pillow
 
 # UI
 gradio
+
+# -------- API Server --------
+fastapi
+uvicorn[standard]
+python-multipart
+
+# -------- LLM APIs --------
+google-genai

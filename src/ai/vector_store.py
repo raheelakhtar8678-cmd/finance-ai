@@ -3,6 +3,7 @@
 import chromadb
 from chromadb.config import Settings
 import numpy as np
+import uuid
 from typing import List, Dict, Any
 
 class VectorStore:
@@ -34,7 +35,7 @@ class VectorStore:
         """
         Add text + embedding + metadata in one call.
         """
-        ids = [f"id_{i}" for i in range(len(texts))]
+        ids = [str(uuid.uuid4()) for _ in range(len(texts))]
 
         self.collection.add(
             ids=ids,
@@ -48,19 +49,41 @@ class VectorStore:
     # --------------------------
     # Query
     # --------------------------
-    def query(self, query_vector: np.ndarray, k: int = 5):
+    def query(self, query_vector: np.ndarray, k: int = 5, where_filter: dict = None):
         """
         Query top-k most similar items.
+        
+        Args:
+            query_vector: Embedding vector for similarity search
+            k: Number of results to return
+            where_filter: Optional ChromaDB where clause for metadata filtering.
+                          Applied BEFORE similarity search (pre-filtering).
+                          Example: {"stmt_type": {"$eq": "Income Statement"}}
         """
-        results = self.collection.query(
-            query_embeddings=[query_vector.tolist()],
-            n_results=k
-        )
+        query_params = {
+            "query_embeddings": [query_vector.tolist()],
+            "n_results": k
+        }
+        
+        # Apply metadata pre-filter if provided
+        if where_filter:
+            query_params["where"] = where_filter
+            print(f"🔍 [VectorStore] Pre-filtering with: {where_filter}")
+        
+        try:
+            results = self.collection.query(**query_params)
+        except Exception as e:
+            # Fallback: If where filter fails (invalid field, etc.), retry without it
+            print(f"⚠️ [VectorStore] Where filter failed ({e}), falling back to unfiltered search")
+            results = self.collection.query(
+                query_embeddings=[query_vector.tolist()],
+                n_results=k
+            )
 
         return {
-            "documents": results["documents"][0],
-            "metadatas": results["metadatas"][0],
-            "distances": results["distances"][0],
+            "documents": results["documents"][0] if results["documents"] else [],
+            "metadatas": results["metadatas"][0] if results["metadatas"] else [],
+            "distances": results["distances"][0] if results["distances"] else [],
         }
 
 

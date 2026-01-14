@@ -29,15 +29,24 @@ for dir_name in REQUIRED_DIRS:
 app.mount("/static", StaticFiles(directory="data/static"), name="static")
 
 # ==========================================
-# 🚀 ROUTER INCLUSION
+# 🚀 ROUTER & UI INCLUSION
 # ==========================================
-# This brings back /upload, /query, and any other routes
 app.include_router(router)
+
+# Mount Gradio UI
+try:
+    import gradio as gr
+    from app import demo
+    app = gr.mount_gradio_app(app, demo, path="/ui")
+    print("✅ Gradio UI mounted at http://127.0.0.1:8000/ui")
+except Exception as e:
+    print(f"⚠️ Could not mount Gradio UI: {e}")
 
 @app.get("/")
 async def health_check():
     return {
         "status": "online", 
         "engine": "Deterministic Financial Reasoning",
+        "ui": "/ui",
         "directories": "verified"
     }
