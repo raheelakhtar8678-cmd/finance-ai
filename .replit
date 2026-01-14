@@ -1,0 +1,21 @@
+# Replit configuration for Finance AI
+# Import this repo directly from GitHub
+
+run = "python app.py"
+entrypoint = "app.py"
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "python app.py"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 7860
+externalPort = 80
+
+[env]
+GRADIO_SERVER_NAME = "0.0.0.0"
+GRADIO_SERVER_PORT = "7860"
